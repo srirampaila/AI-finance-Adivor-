@@ -21,6 +21,8 @@ import pytest
         ("GET", "/api/v1/investments/insights"),
         ("POST", "/api/v1/advisor/chat"),
         ("GET", "/api/v1/advisor/history"),
+        ("GET", "/api/v1/reports"),
+        ("POST", "/api/v1/reports/generate"),
     ],
 )
 def test_protected_endpoints_require_auth(client, method, endpoint):
@@ -36,28 +38,6 @@ def test_protected_endpoints_require_auth(client, method, endpoint):
     data = response.json()
     assert data["success"] is False
     assert data["error"]["code"] == "AUTHENTICATION_REQUIRED"
-
-
-@pytest.mark.parametrize(
-    "method,endpoint",
-    [
-        ("GET", "/api/v1/reports"),
-    ],
-)
-def test_deferred_placeholder_endpoints_return_501(client, method, endpoint):
-    """Verify that remaining deferred domain routers return standardized 501 placeholders."""
-    if method == "GET":
-        response = client.get(endpoint)
-    elif method == "POST":
-        response = client.post(endpoint)
-    else:
-        response = client.request(method, endpoint)
-
-    assert response.status_code == 501
-    data = response.json()
-    assert data["success"] is False
-    assert data["error"]["code"] == "NOT_IMPLEMENTED"
-    assert "timestamp" in data
 
 
 def test_openapi_docs_endpoints(client):
