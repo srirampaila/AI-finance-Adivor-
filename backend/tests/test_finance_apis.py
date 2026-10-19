@@ -92,6 +92,76 @@ def test_transaction_crud_and_validation(client: TestClient, db_session: AsyncSe
     assert get_after_del.status_code == 404
 
 
+def test_transaction_missing_and_malformed_financial_values(client: TestClient, db_session: AsyncSession):
+    """Verify rejection of missing, non-numeric, zero, negative, and invalid enum values."""
+    token = register_and_get_token(client, "tx_malformed_test@example.com", "Malformed Tester")
+    headers = auth_headers(token)
+
+    # 1. Missing amount
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Missing Amount", "category": "Food", "type": "debit"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 2. Missing title
+    res = client.post(
+        "/api/v1/transactions",
+        json={"category": "Food", "amount": "100.00", "type": "debit"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 3. Missing type
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Missing Type", "category": "Food", "amount": "100.00"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 4. Non-numeric amount string
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "NaN Amount", "category": "Food", "amount": "not-a-number", "type": "debit"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 5. Zero amount (gt=0 constraint)
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Zero Amount", "category": "Food", "amount": 0, "type": "debit"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 6. Negative amount
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Negative Amount", "category": "Food", "amount": -150.50, "type": "debit"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 7. Invalid transaction type enum
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Invalid Type", "category": "Food", "amount": 100, "type": "wire_transfer"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # 8. Invalid status enum
+    res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Invalid Status", "category": "Food", "amount": 100, "type": "debit", "status": "settled"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+
 def test_transaction_pagination_and_filtering(client: TestClient, db_session: AsyncSession):
     token = register_and_get_token(client, "tx_filter_user@example.com", "Filter User")
     headers = auth_headers(token)

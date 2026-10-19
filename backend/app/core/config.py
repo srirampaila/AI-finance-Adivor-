@@ -80,10 +80,14 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             if v.startswith("[") and v.endswith("]"):
                 try:
-                    return json.loads(v)
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(o).strip().strip("'\"").rstrip("/") for o in parsed if str(o).strip().strip("'\"")]
                 except Exception:
                     pass
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            return [origin.strip().strip("'\"").rstrip("/") for origin in v.split(",") if origin.strip().strip("'\"")]
+        if isinstance(v, list):
+            return [str(origin).strip().strip("'\"").rstrip("/") for origin in v if str(origin).strip().strip("'\"")]
         return v
 
     @model_validator(mode="after")

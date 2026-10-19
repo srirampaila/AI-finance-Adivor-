@@ -109,13 +109,19 @@ class ApiClient {
         }
       }
 
-      const json = await response.json();
+      let json: any = null;
+      const text = await response.text();
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = null;
+      }
 
       if (!response.ok) {
         const error: ApiError = {
-          code: json.error?.code || json.code || `HTTP_${response.status}`,
-          message: json.error?.message || json.message || `HTTP ${response.status}: ${response.statusText}`,
-          details: json.error?.details || json.details,
+          code: json?.error?.code || json?.code || `HTTP_${response.status}`,
+          message: json?.error?.message || json?.message || (text && text.length < 300 ? text : `HTTP ${response.status}: ${response.statusText}`),
+          details: json?.error?.details || json?.details,
         };
         throw error;
       }
@@ -128,7 +134,7 @@ class ApiClient {
       // If backend returns raw data object
       return {
         success: true,
-        data: json as T,
+        data: (json ?? text) as T,
         timestamp: new Date().toISOString(),
       };
     } catch (err: any) {

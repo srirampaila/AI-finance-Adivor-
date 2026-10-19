@@ -112,3 +112,22 @@ def test_database_url_normalization_postgres_schemes_and_ssl():
     assert connect_kwargs["application_name"] == "ai_finance"
 
 
+def test_cors_origins_parsing():
+    """Verify that parse_cors_origins handles comma-separated, JSON, quoted strings, and trailing slashes."""
+    # 1. Comma-separated with spaces and trailing slashes
+    res1 = Settings.parse_cors_origins("https://app.vercel.app/, https://custom.domain.com")
+    assert res1 == ["https://app.vercel.app", "https://custom.domain.com"]
+
+    # 2. JSON array string
+    res2 = Settings.parse_cors_origins('["https://app.vercel.app/", "https://custom.domain.com/"]')
+    assert res2 == ["https://app.vercel.app", "https://custom.domain.com"]
+
+    # 3. Surrounding quotes from shell or UI
+    res3 = Settings.parse_cors_origins('"https://app.vercel.app/"')
+    assert res3 == ["https://app.vercel.app"]
+
+    # 4. List of strings
+    res4 = Settings.parse_cors_origins(["https://app.vercel.app/", "http://localhost:5173"])
+    assert res4 == ["https://app.vercel.app", "http://localhost:5173"]
+
+

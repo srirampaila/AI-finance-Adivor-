@@ -45,14 +45,14 @@ export const InvestmentSnapshot: React.FC = () => {
         <div>
           <p className="text-xs text-slate-500 font-medium mb-1">Portfolio Value</p>
           <p className="text-lg font-bold text-slate-900">
-            ${summary?.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            ${Number(summary?.totalValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
         </div>
         <div>
           <p className="text-xs text-slate-500 font-medium mb-1">Today's P&L</p>
-          <p className={`text-lg font-bold flex items-center gap-1 ${(summary?.todaysPnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {(summary?.todaysPnl || 0) >= 0 ? <TrendingUp className="w-4 h-4" /> : null}
-            {(summary?.todaysPnl || 0) >= 0 ? '+' : ''}${summary?.todaysPnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <p className={`text-lg font-bold flex items-center gap-1 ${Number(summary?.todaysPnl ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            {Number(summary?.todaysPnl ?? 0) >= 0 ? <TrendingUp className="w-4 h-4" /> : null}
+            {Number(summary?.todaysPnl ?? 0) >= 0 ? '+' : ''}${Number(summary?.todaysPnl ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
         </div>
         <div>

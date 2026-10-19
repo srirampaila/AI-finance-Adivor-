@@ -301,3 +301,90 @@ def test_logout_endpoint(client: TestClient):
     response = client.post("/api/v1/auth/logout")
     assert response.status_code == 200
     assert response.json()["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_complete_authenticated_lifecycle_in_isolated_fixture(client: TestClient, db_session: AsyncSession):
+    """
+    Test the complete end-to-end user journey in an isolated test fixture:
+    1. Register new user
+    2. Login and retrieve JWT
+    3. Access /auth/me
+    4. Access initial empty /dashboard
+    5. Add income and expense transactions
+    6. Verify updated /dashboard metrics and spending breakdown
+    7. Query /transactions with pagination
+    8. Logout
+    """
+    email = "lifecycle.user@example.com"
+    password = "LifecyclePass2026!"
+    name = "Lifecycle Tester"
+
+    # 1. Register
+    reg_res = client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": password, "name": name, "currency": "INR"},
+    )
+    assert reg_res.status_code == 201
+    assert reg_res.json()["data"]["email"] == email
+
+    # 2. Login
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert login_res.status_code == 200
+    token = login_res.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 3. Current user profile
+    me_res = client.get("/api/v1/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["data"]["name"] == name
+
+    # 4. Initial empty Dashboard
+    dash_init = client.get("/api/v1/dashboard", headers=headers)
+    assert dash_init.status_code == 200
+    init_data = dash_init.json()["data"]
+    assert Decimal(str(init_data["netWorth"])) == Decimal("0")
+    assert Decimal(str(init_data["monthlyIncome"])) == Decimal("0")
+    assert Decimal(str(init_data["monthlyExpenses"])) == Decimal("0")
+    assert init_data["transactions"] == []
+
+    # 5. Add transactions
+    tx1_res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Salary", "amount": 80000.0, "category": "Salary", "type": "credit"},
+        headers=headers,
+    )
+    assert tx1_res.status_code == 200
+
+    tx2_res = client.post(
+        "/api/v1/transactions",
+        json={"title": "Rent", "amount": 25000.0, "category": "Housing", "type": "debit"},
+        headers=headers,
+    )
+    assert tx2_res.status_code == 200
+
+    # 6. Verify updated Dashboard
+    dash_updated = client.get("/api/v1/dashboard", headers=headers)
+    assert dash_updated.status_code == 200
+    up_data = dash_updated.json()["data"]
+    assert Decimal(str(up_data["netWorth"])) == Decimal("55000.00")
+    assert Decimal(str(up_data["monthlyIncome"])) == Decimal("80000.00")
+    assert Decimal(str(up_data["monthlyExpenses"])) == Decimal("25000.00")
+    assert Decimal(str(up_data["savings"])) == Decimal("55000.00")
+    assert up_data["summary"]["savingsRate"] == 68.8
+    assert len(up_data["transactions"]) == 2
+    assert len(up_data["spending"]) == 1
+    assert up_data["spending"][0]["category"] == "Housing"
+
+    # 7. Query Transactions list
+    tx_list = client.get("/api/v1/transactions", headers=headers)
+    assert tx_list.status_code == 200
+    assert tx_list.json()["data"]["total"] == 2
+
+    # 8. Logout
+    logout_res = client.post("/api/v1/auth/logout", headers=headers)
+    assert logout_res.status_code == 200
+
