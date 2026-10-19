@@ -86,3 +86,29 @@ def test_database_url_normalization_postgres_schemes_and_ssl():
     assert Settings.normalize_database_url("sqlite:///./test.db") == "sqlite+aiosqlite:///./test.db"
     assert Settings.normalize_database_url("sqlite+aiosqlite:///./test.db") == "sqlite+aiosqlite:///./test.db"
 
+    # 9. Synthetic Neon URL with sslmode=require and channel_binding=require
+    url9 = "postgresql://example:password@host.example/neondb?sslmode=require&channel_binding=require"
+    assert Settings.normalize_database_url(url9) == "postgresql+asyncpg://example:password@host.example/neondb?ssl=require"
+
+    # 10. Channel binding with other supported query parameters preserved
+    url10 = "postgresql://example:password@host.example/neondb?channel_binding=require&sslmode=require&application_name=ai_finance"
+    norm10 = Settings.normalize_database_url(url10)
+    assert norm10 == "postgresql+asyncpg://example:password@host.example/neondb?ssl=require&application_name=ai_finance"
+
+    # 11. Case-insensitive handling of channel_binding and sslmode
+    url11 = "postgresql://example:password@host.example/neondb?SSLMODE=require&CHANNEL_BINDING=require"
+    assert Settings.normalize_database_url(url11) == "postgresql+asyncpg://example:password@host.example/neondb?ssl=require"
+
+    # 12. SQLAlchemy asyncpg dialect connect args verification
+    from sqlalchemy.engine.url import make_url
+    from sqlalchemy.dialects.postgresql.asyncpg import PGDialect_asyncpg
+
+    parsed = make_url(norm10)
+    dialect = PGDialect_asyncpg()
+    _, connect_kwargs = dialect.create_connect_args(parsed)
+    assert "channel_binding" not in connect_kwargs
+    assert "sslmode" not in connect_kwargs
+    assert connect_kwargs["ssl"] == "require"
+    assert connect_kwargs["application_name"] == "ai_finance"
+
+

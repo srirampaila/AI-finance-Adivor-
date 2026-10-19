@@ -62,25 +62,27 @@ def test_alembic_migrations_normalizes_raw_database_url(tmp_path):
 
 
 def test_alembic_env_normalizes_neon_sslmode_url():
-    """Verify that Alembic env.py normalizes raw Neon postgresql:// URLs with sslmode=require to asyncpg with ssl=require."""
+    """Verify that Alembic env.py normalizes raw Neon postgresql:// URLs with sslmode and channel_binding to asyncpg with ssl=require."""
     from app.core.config import Settings
     from sqlalchemy.engine.url import make_url
     from sqlalchemy.dialects.postgresql.asyncpg import PGDialect_asyncpg
 
-    raw_neon_url = "postgresql://neondb_owner:mypassword@ep-xyz.singapore.aws.neon.tech/neondb?sslmode=require&channel_binding=prefer"
+    raw_neon_url = "postgresql://neondb_owner:mypassword@ep-xyz.singapore.aws.neon.tech/neondb?sslmode=require&channel_binding=require&application_name=ai_finance"
     normalized = Settings.normalize_database_url(raw_neon_url)
 
     assert normalized.startswith("postgresql+asyncpg://")
     assert "ssl=require" in normalized
     assert "sslmode" not in normalized
-    assert "channel_binding=prefer" in normalized
+    assert "channel_binding" not in normalized
+    assert "application_name=ai_finance" in normalized
 
-    # Verify SQLAlchemy asyncpg dialect generates connect args without sslmode keyword error
+    # Verify SQLAlchemy asyncpg dialect generates connect args without unsupported keyword arguments
     parsed_url = make_url(normalized)
     dialect = PGDialect_asyncpg()
     _, connect_kwargs = dialect.create_connect_args(parsed_url)
     assert "sslmode" not in connect_kwargs
+    assert "channel_binding" not in connect_kwargs
     assert connect_kwargs["ssl"] == "require"
-    assert connect_kwargs["channel_binding"] == "prefer"
+    assert connect_kwargs["application_name"] == "ai_finance"
 
 

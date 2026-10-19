@@ -56,13 +56,17 @@ class Settings(BaseSettings):
             if query:
                 params = urllib.parse.parse_qsl(query, keep_blank_values=True)
                 new_params = []
-                has_ssl = any(k == "ssl" for k, _ in params)
+                has_ssl = any(k.lower() == "ssl" for k, _ in params)
                 for k, val in params:
-                    if k == "sslmode":
+                    k_lower = k.lower()
+                    if k_lower == "sslmode":
                         # asyncpg does not accept 'sslmode' connection argument; translate to 'ssl'
                         if not has_ssl:
                             new_params.append(("ssl", val))
                             has_ssl = True
+                    elif k_lower == "channel_binding":
+                        # asyncpg does not support libpq's 'channel_binding' parameter; drop it
+                        continue
                     else:
                         new_params.append((k, val))
                 query = urllib.parse.urlencode(new_params)
