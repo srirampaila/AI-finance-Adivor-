@@ -2,6 +2,7 @@ from typing import List, Optional, Union
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import json
+import urllib.parse
 
 
 class Settings(BaseSettings):
@@ -36,12 +37,37 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def normalize_database_url(cls, v: str) -> str:
+        if not v:
+            return v
+
+        # 1. Handle SQLite async prefix
         if v.startswith("sqlite://") and not v.startswith("sqlite+aiosqlite://"):
             return v.replace("sqlite://", "sqlite+aiosqlite://", 1)
-        if v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
-            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
-        if v.startswith("postgres://") and not v.startswith("postgresql+asyncpg://"):
-            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("sqlite+aiosqlite://"):
+            return v
+
+        # 2. Handle PostgreSQL schemes and asyncpg query parameters
+        parts = urllib.parse.urlsplit(v)
+        scheme = parts.scheme
+
+        if scheme in ("postgres", "postgresql", "postgresql+asyncpg"):
+            scheme = "postgresql+asyncpg"
+            query = parts.query
+            if query:
+                params = urllib.parse.parse_qsl(query, keep_blank_values=True)
+                new_params = []
+                has_ssl = any(k == "ssl" for k, _ in params)
+                for k, val in params:
+                    if k == "sslmode":
+                        # asyncpg does not accept 'sslmode' connection argument; translate to 'ssl'
+                        if not has_ssl:
+                            new_params.append(("ssl", val))
+                            has_ssl = True
+                    else:
+                        new_params.append((k, val))
+                query = urllib.parse.urlencode(new_params)
+            return urllib.parse.urlunsplit((scheme, parts.netloc, parts.path, query, parts.fragment))
+
         return v
 
     @field_validator("CORS_ORIGINS", mode="before")
