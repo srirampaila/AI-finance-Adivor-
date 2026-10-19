@@ -5,11 +5,10 @@ services:
     name: ai-finance-backend
     env: python
     region: singapore
-    plan: starter
+    plan: free
     rootDir: backend
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
-    preDeployCommand: "alembic upgrade head"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
