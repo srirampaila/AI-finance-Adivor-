@@ -35,3 +35,28 @@ def test_alembic_migrations_upgrade_and_downgrade(tmp_path):
             os.environ["DATABASE_URL"] = orig_env_db
         else:
             os.environ.pop("DATABASE_URL", None)
+
+
+def test_alembic_migrations_normalizes_raw_database_url(tmp_path):
+    """Verify that Alembic migrations normalize raw URLs (like sqlite:// or postgresql://) to async drivers."""
+    test_db_file = tmp_path / "migration_raw_test.db"
+    # Pass a raw sqlite:// URL without +aiosqlite driver prefix
+    raw_db_url = f"sqlite:///{test_db_file}"
+
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    alembic_ini_path = os.path.join(backend_dir, "alembic.ini")
+
+    alembic_cfg = Config(alembic_ini_path)
+    alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", raw_db_url)
+
+    orig_env_db = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = raw_db_url
+    try:
+        command.upgrade(alembic_cfg, "head")
+    finally:
+        if orig_env_db is not None:
+            os.environ["DATABASE_URL"] = orig_env_db
+        else:
+            os.environ.pop("DATABASE_URL", None)
+

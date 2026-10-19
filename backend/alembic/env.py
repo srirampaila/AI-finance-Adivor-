@@ -13,7 +13,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.db.base import Base
 # Import all models to register them on Base.metadata
 import app.models  # noqa: F401
@@ -31,7 +31,8 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Use configured sqlalchemy.url from env, application settings, or config
-db_url = os.environ.get("DATABASE_URL") or settings.DATABASE_URL or config.get_main_option("sqlalchemy.url")
+raw_db_url = os.environ.get("DATABASE_URL") or settings.DATABASE_URL or config.get_main_option("sqlalchemy.url")
+db_url = Settings.normalize_database_url(raw_db_url) if raw_db_url else raw_db_url
 config.set_main_option("sqlalchemy.url", db_url)
 
 
@@ -46,7 +47,8 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    raw_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    url = Settings.normalize_database_url(raw_url) if raw_url else raw_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -75,7 +77,8 @@ async def run_async_migrations() -> None:
     and associate a connection with the context.
     """
     configuration = config.get_section(config.config_ini_section, {})
-    target_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    raw_target_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    target_url = Settings.normalize_database_url(raw_target_url) if raw_target_url else raw_target_url
     configuration["sqlalchemy.url"] = target_url
 
     connectable = async_engine_from_config(
